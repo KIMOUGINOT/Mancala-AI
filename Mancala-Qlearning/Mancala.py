@@ -1,7 +1,11 @@
+import random
+
 class Mancala_Board:
-    def __init__(self, mancala):
-        if mancala != None:
+    def __init__(self, mancala, random = False):
+        if mancala != None and not(random):
             self.mancala = mancala[:]
+        if random :
+            self.mancala = self.generate_random_mancala()
         else:
             self.mancala = [0 for i in range(14)]
             for i in range(0,6):
@@ -64,6 +68,27 @@ class Mancala_Board:
             return True
 
         return False
+    
+    def generate_random_mancala(self):
+        length = 14
+        total = 48
+        rand_list = [random.randint(0, 8) for _ in range(length)]
+        current_sum = sum(rand_list)
+        scale_factor = total / current_sum
+        adjusted_list = [int(value * scale_factor) for value in rand_list]
+        
+        # Correction des valeurs si nécessaire pour atteindre exactement 'total'
+        while sum(adjusted_list) != total:
+            if sum(adjusted_list) < total:
+                # Ajouter la différence à un élément aléatoire
+                index = random.randint(0, length - 1)
+                adjusted_list[index] += 1
+            else:
+                # Soustraire la différence à un élément aléatoire
+                index = random.randint(0, length - 1)
+                adjusted_list[index] -= 1
+    
+        return adjusted_list
 
     def print_mancala(self):
         for i in range(12,6,-1):
@@ -74,6 +99,7 @@ class Mancala_Board:
         for i in range(0,6,1):
             print('  ', self.mancala[i], '   ', end='')
         print('  ')
+
     def husVal(self):
         if self.isEnd():
             if self.mancala[13]>self.mancala[6]:
@@ -83,4 +109,4 @@ class Mancala_Board:
             else :
                  return -100
         else:
-            return self.mancala[13]- self.mancala[6]
+            return self.mancala[13] - self.mancala[6]

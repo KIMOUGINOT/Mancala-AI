@@ -3,7 +3,7 @@ import pickle
 from Mancala import *
 
 class QLearningAgent:
-    def __init__(self, alpha=0.1, gamma=0.9, epsilon=0.1):
+    def __init__(self, alpha=0.2, gamma=0.9, epsilon=0.1):
         self.Q = {}  # Dictionnaire pour stocker les valeurs Q
         self.alpha = alpha  # Taux d'apprentissage
         self.gamma = gamma  # Facteur de remise (discount factor)
@@ -38,11 +38,13 @@ class MancalaQLearning:
         self.agent = QLearningAgent()  # Initialisation de l'agent Q-learning
 
     def train(self, num_episodes):
-        mancala_game = Mancala_Board(None)  # Initialisation du jeu Mancala
+        mancala_game = Mancala_Board(None, True)  # Initialisation du jeu Mancala
 
         for episode in range(num_episodes):
+            print(f"Episode : {episode}")
             state = tuple(mancala_game.mancala)  # État initial du jeu (configuration du plateau)
             done = False
+            mancala_game.print_mancala()
 
             while not done:
                 current_player = 0 if mancala_game.player_move == 0 else 1
@@ -56,7 +58,7 @@ class MancalaQLearning:
                 next_state = tuple(mancala_game.mancala)
 
                 reward = mancala_game.husVal()  # Récompense basée sur la valeur hus
-
+                print(f"reward :{reward}")
                 if mancala_game.isEnd():
                     done = True
                     reward = mancala_game.husVal()  # Récompense finale à la fin du jeu
@@ -67,7 +69,7 @@ class MancalaQLearning:
                     self.agent.update_Q_value(state, action, reward, next_state, next_actions)
                     state = next_state
 
-            mancala_game = Mancala_Board(None)  # Réinitialisation du jeu pour un nouvel épisode
+            mancala_game = Mancala_Board(None,True)  # Réinitialisation du jeu pour un nouvel épisode
 
     def save_model(self, filename):
         # Sauvegarder le modèle Q-learning dans un fichier
