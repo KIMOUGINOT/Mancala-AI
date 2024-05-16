@@ -103,10 +103,11 @@ class Mancala_Board:
     def husVal(self):
         if self.isEnd():
             if self.mancala[13]>self.mancala[6]:
-                return 100
+                return -100
+                # return 5*(self.mancala[6] - self.mancala[13])
             elif self.mancala[13]==self.mancala[6]:
                 return 0
             else :
-                 return -100
+                return 100
         else:
-            return self.mancala[13] - self.mancala[6]
+            return self.mancala[6] - self.mancala[13]

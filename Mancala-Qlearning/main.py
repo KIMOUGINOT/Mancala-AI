@@ -4,10 +4,14 @@ from Qlearning import *
 mancala_ai = MancalaQLearning()
 
 # Entraîner l'IA avec un certain nombre d'épisodes
-mancala_ai.train(num_episodes=5000)
+mancala_ai.train(num_episodes=10000)
 
-# Sauvegarder le modèle entraîné dans un fichier
+# # Sauvegarder le modèle entraîné dans un fichier
 mancala_ai.save_model('q_learning_model.pkl')
 
 # Utiliser l'agent chargé pour jouer au Mancala
-# player_aibot()
+# cpt = 0
+# for _ in range (100) :
+#     if not(player_aivsai()) :
+#         cpt+=1
+#         print(cpt)
