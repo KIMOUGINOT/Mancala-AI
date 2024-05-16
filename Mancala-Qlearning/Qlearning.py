@@ -12,6 +12,7 @@ class QLearningAgent:
         self.gamma = gamma  # Facteur de remise (discount factor)
         self.epsilon = epsilon  # Taux d'exploration initial
 
+
     def get_Q_value(self, state, action):
         return self.Q.get((state, action), 0.0)
 
@@ -44,51 +45,56 @@ class MancalaQLearning:
         self.agent = QLearningAgent()  # Initialisation de l'agent Q-learning
 
     def train(self, num_episodes):
-        ITERATION = 100
-        mancala_game = Mancala_Board(None, True)  # Initialisation du jeu Mancala
-        copy_mancala = copy.copy(mancala_game)
+        ITERATION = 30
         reward_table = []
-        episodes_table = np.arange(num_episodes)
+        episodes_table = np.arange(num_episodes*ITERATION)
         cpt = 0
         for episode in range(num_episodes):
+            mancala_game = Mancala_Board(None, True)  # Initialisation du jeu Mancala
             cpt+=1
             print(f"Episode : {episode} ---------------")
-            state = tuple(mancala_game.mancala)  # État initial du jeu (configuration du plateau)
-            done = False
             mancala_game.print_mancala()
 
-            while not done:
-                current_player = 0 if mancala_game.player_move == 0 else 1
-                if current_player == 0:
-                    possible_actions = [i for i in range(6) if mancala_game.mancala[i] > 0]
-                else:
-                    possible_actions = [i for i in range(7, 13) if mancala_game.mancala[i] > 0]
+            for iter in range(ITERATION) :
+                print(f"Iteration : {iter} ---------------")
+                copy_mancala = Mancala_Board(mancala_game.mancala)
+                state = tuple(copy_mancala.mancala)  # État initial du jeu (configuration du plateau)
+                done = False
+                print("mancala original")
+                copy_mancala.print_mancala()
+                while not done:
+                    copy_mancala.print_mancala()
+                    current_player = 0 if copy_mancala.player_move == 0 else 1
+                    if current_player == 0:
+                        possible_actions = [i for i in range(6) if copy_mancala.mancala[i] > 0]
+                    else:
+                        possible_actions = [i for i in range(7, 13) if copy_mancala.mancala[i] > 0]
 
-                action = self.agent.choose_action(state, possible_actions)
-                print(f"action : {action}")
-                repeat_turn = mancala_game.player_move(action)
-                mancala_game.print_mancala()
-                next_state = tuple(mancala_game.mancala)
+                    action = self.agent.choose_action(state, possible_actions)
+                    print(f"action : {action}")
+                    repeat_turn = copy_mancala.player_move(action)
+                    next_state = tuple(copy_mancala.mancala)
 
-                reward = mancala_game.husVal()  # Récompense basée sur la valeur hus
-                if mancala_game.isEnd():
-                    done = True
-                    reward = mancala_game.husVal()  # Récompense finale à la fin du jeu
-                    reward_table.append(reward)
+                    reward = copy_mancala.husVal()  # Récompense basée sur la valeur hus
+                    if copy_mancala.isEnd():
+                        done = True
+                        reward = copy_mancala.husVal()  # Récompense finale à la fin du jeu
+                        reward_table.append(reward)
 
-                if not repeat_turn:
-                    # Mettre à jour la valeur Q
-                    next_actions = possible_actions if not done else []
-                    self.agent.update_Q_value(state, action, reward, next_state, next_actions)
-                    state = next_state
-            if (cpt % ITERATION) == 0 : 
-                mancala_game = Mancala_Board(None,True)  # Réinitialisation du jeu pour un nouvel épisode
-            else :
-                mancala_game = copy_mancala
+                    if not repeat_turn:
+                        # Mettre à jour la valeur Q
+                        next_actions = possible_actions if not done else []
+                        self.agent.update_Q_value(state, action, reward, next_state, next_actions)
+                        state = next_state
+
+            mancala_game = Mancala_Board(None,True)  # Réinitialisation du jeu pour un nouvel épisode
+
         
         print(f"reward moyenne : {sum(reward_table)/len(reward_table)}")
         plt.figure()
-        plt.scatter(episodes_table, reward_table)
+        for i in range(ITERATION, ITERATION*5, ITERATION):
+            plt.axvline(x=i, color='r', linestyle='--', linewidth=1)
+        plt.scatter(episodes_table[:ITERATION*5], reward_table[:ITERATION*5])
         plt.show()
 
     def save_model(self, filename):
