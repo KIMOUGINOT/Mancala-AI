@@ -5,13 +5,14 @@ import numpy as np
 import copy
 from Mancala import *
 
+
 class QLearningAgent:
-    def __init__(self, alpha=0.2, gamma=0.99, epsilon=0.1):
+    def __init__(self, alpha=0.3, gamma=0.99, epsilon=0.3, epsilon_decay=0.999):
         self.Q = {}  # Dictionnaire pour stocker les valeurs Q
         self.alpha = alpha  # Taux d'apprentissage
         self.gamma = gamma  # Facteur de remise (discount factor)
         self.epsilon = epsilon  # Taux d'exploration initial
-
+        self.epsilon_decay = epsilon_decay  # Décroissance de epsilon
 
     def get_Q_value(self, state, action):
         return self.Q.get((state, action), 0.0)
@@ -20,82 +21,75 @@ class QLearningAgent:
         if next_actions:
             max_next_Q = max([self.get_Q_value(next_state, a) for a in next_actions])
         else:
-            # Si next_actions est vide, assigner une valeur par défaut
             max_next_Q = 0.0  # Vous pouvez choisir une autre valeur appropriée ici
 
         current_Q = self.get_Q_value(state, action)
         new_Q = current_Q + self.alpha * (reward + self.gamma * max_next_Q - current_Q)
         self.Q[(state, action)] = new_Q
 
-
     def choose_action(self, state, possible_actions):
-        # print(possible_actions)
         if random.random() < self.epsilon:
             return random.choice(possible_actions)
         else:
-            # Choix de l'action avec la plus grande valeur Q pour cet état
             max_Q = max([self.get_Q_value(state, a) for a in possible_actions])
             best_actions = [a for a in possible_actions if self.get_Q_value(state, a) == max_Q]
-            if len(best_actions) == 0 :
-                return random.choice(possible_actions)
             return random.choice(best_actions)
+
+    def decay_epsilon(self):
+        self.epsilon *= self.epsilon_decay
 
 class MancalaQLearning:
     def __init__(self):
         self.agent = QLearningAgent()  # Initialisation de l'agent Q-learning
 
     def train(self, num_episodes):
-        ITERATION = 30
         reward_table = []
-        episodes_table = np.arange(num_episodes*ITERATION)
-        cpt = 0
+        episodes_table = np.arange(num_episodes)
+
         for episode in range(num_episodes):
-            mancala_game = Mancala_Board(None, True)  # Initialisation du jeu Mancala
-            cpt+=1
-            print(f"Episode : {episode} ---------------")
-            mancala_game.print_mancala()
+            mancala_game = Mancala_Board(None)  # Initialisation du jeu Mancala avec configuration classique
+            state = tuple(mancala_game.mancala)  # État initial du jeu (configuration du plateau)
+            done = False
+            coup = 0
+            repeat_turn = False
+            current_player = 1
+            while not done:
+                coup += 1
+                if current_player == 0:
+                    possible_actions = [i for i in range(6) if mancala_game.mancala[i] > 0]
+                else:
+                    possible_actions = [i for i in range(7, 13) if mancala_game.mancala[i] > 0]
 
-            for iter in range(ITERATION) :
-                print(f"Iteration : {iter} ---------------")
-                copy_mancala = Mancala_Board(mancala_game.mancala)
-                state = tuple(copy_mancala.mancala)  # État initial du jeu (configuration du plateau)
-                done = False
-                print("mancala original")
-                copy_mancala.print_mancala()
-                while not done:
-                    copy_mancala.print_mancala()
-                    current_player = 0 if copy_mancala.player_move == 0 else 1
-                    if current_player == 0:
-                        possible_actions = [i for i in range(6) if copy_mancala.mancala[i] > 0]
-                    else:
-                        possible_actions = [i for i in range(7, 13) if copy_mancala.mancala[i] > 0]
+                action = self.agent.choose_action(state, possible_actions)
+                repeat_turn = mancala_game.player_move(action)
+                next_state = tuple(mancala_game.mancala)
 
-                    action = self.agent.choose_action(state, possible_actions)
-                    print(f"action : {action}")
-                    repeat_turn = copy_mancala.player_move(action)
-                    next_state = tuple(copy_mancala.mancala)
+                reward = mancala_game.husVal()  # Récompense basée sur la valeur hus
+                if mancala_game.isEnd():
+                    done = True
+                    reward = mancala_game.husVal(nb_coup=coup)  # Récompense finale à la fin du jeu
+                    reward_table.append(reward)
 
-                    reward = copy_mancala.husVal()  # Récompense basée sur la valeur hus
-                    if copy_mancala.isEnd():
-                        done = True
-                        reward = copy_mancala.husVal()  # Récompense finale à la fin du jeu
-                        reward_table.append(reward)
+                if not repeat_turn:
+                    # Mettre à jour la valeur Q
+                    next_actions = possible_actions if not done else []
+                    self.agent.update_Q_value(state, action, reward, next_state, next_actions)
+                    state = next_state
+                    current_player = not(current_player)
 
-                    if not repeat_turn:
-                        # Mettre à jour la valeur Q
-                        next_actions = possible_actions if not done else []
-                        self.agent.update_Q_value(state, action, reward, next_state, next_actions)
-                        state = next_state
+            self.agent.decay_epsilon()  # Décroître epsilon après chaque épisode
 
-            mancala_game = Mancala_Board(None,True)  # Réinitialisation du jeu pour un nouvel épisode
+            if (episode + 1) % 1000 == 0:
+                self.save_model(f'q_learning_model_{episode + 1}.pkl')
+                plt.figure()
+                plt.scatter(episodes_table[:episode+1], reward_table)
+                plt.title('Training Rewards Over Episodes')
+                plt.xlabel('Episodes')
+                plt.ylabel('Rewards')
+                plt.show()
 
-        
         print(f"reward moyenne : {sum(reward_table)/len(reward_table)}")
-        plt.figure()
-        for i in range(ITERATION, ITERATION*5, ITERATION):
-            plt.axvline(x=i, color='r', linestyle='--', linewidth=1)
-        plt.scatter(episodes_table[:ITERATION*5], reward_table[:ITERATION*5])
-        plt.show()
+        
 
     def save_model(self, filename):
         # Sauvegarder le modèle Q-learning dans un fichier
@@ -112,20 +106,22 @@ class MancalaQLearning:
 
 def player_aibot():
     j = Mancala_Board(None)
-    j.print_mancala()
     
     # Créer une instance de MancalaQLearning pour l'agent Q-learning
     mancala_ai = MancalaQLearning()
     
     # Charger le modèle Q-learning pré-entraîné (s'il existe)
     try:
-        mancala_ai.load_model('q_learning_model.pkl')
+        mancala_ai.load_model('q_learning_model_10000.pkl')
+        print("Model loaded")
     except FileNotFoundError:
         print("No pre-trained model found. Training new model...")
         # Entraîner un nouveau modèle Q-learning
         mancala_ai.train(num_episodes=1000)
         # Sauvegarder le modèle entraîné
         mancala_ai.save_model('q_learning_model.pkl')
+
+    j.print_mancala()
 
     while True:
         if j.isEnd():
@@ -149,12 +145,13 @@ def player_aibot():
             if j.isEnd():
                 break
             
-            print("AI-BOT TURN >>> \n", end="")
+            print("AI-BOT TURN >>> ", end="")
             state = tuple(j.mancala)  # État actuel du jeu
             possible_actions = [i for i in range(7, 13) if j.mancala[i] > 0]  # Actions possibles pour l'AI-bot
             
             # Faire choisir à l'agent Q-learning l'action à jouer
             action = mancala_ai.agent.choose_action(state, possible_actions)
+            print(action)
             t = j.player_move(action)
             j.print_mancala()
             if not t:
@@ -176,17 +173,25 @@ def player_aivsai():
 
     # Charger le modèle Q-learning pré-entraîné pour l'agent principal (si existe)
     try:
-        agent_main.load_model('q_learning_model_main.pkl')
+        agent_main.load_model('q_learning_model_8000.pkl')
+        print("1st Model Loaded")
     except FileNotFoundError:
         print("No pre-trained model found for the main agent. Training new model...")
         # Entraîner un nouveau modèle Q-learning pour l'agent principal
-        agent_main.train(num_episodes=2000)
+        agent_main.train(num_episodes=200)
         # Sauvegarder le modèle entraîné pour l'agent principal
         agent_main.save_model('q_learning_model_main.pkl')
 
-    # Entraîner un nouveau modèle Q-learning pour l'agent adversaire
-    print("Training a new model for the opponent agent...")
-    agent_opponent.train(num_episodes=1000)
+    try:
+        agent_opponent.load_model('q_learning_model_2000.pkl')
+        print("2nd Model Loaded")
+    except FileNotFoundError:
+        print("No pre-trained model found for the opponent agent. Training new model...")
+        # Entraîner un nouveau modèle Q-learning pour l'agent principal
+        agent_opponent.train(num_episodes=50)
+        # Sauvegarder le modèle entraîné pour l'agent principal
+        agent_opponent.save_model('q_learning_model_opponent.pkl')
+
 
     # Initialisation du jeu Mancala
     j = Mancala_Board(None)
@@ -201,12 +206,13 @@ def player_aivsai():
             if j.isEnd():
                 break
             
-            print("MAIN AGENT TURN >>> \n", end="")
+            print("MAIN AGENT TURN >>> ", end="")
             state = tuple(j.mancala)  # État actuel du jeu
             possible_actions = [i for i in range(7, 13) if j.mancala[i] > 0]  # Actions possibles pour l'agent principal
             
             # Faire choisir à l'agent principal l'action à jouer
             action = agent_main.agent.choose_action(state, possible_actions)
+            print(action)
             t = j.player_move(action)
             j.print_mancala()
             if not t:
@@ -217,12 +223,13 @@ def player_aivsai():
             if j.isEnd():
                 break
             
-            print("OPPONENT AGENT TURN >>> \n", end="")
+            print("OPPONENT AGENT TURN >>> ", end="")
             state = tuple(j.mancala)  # État actuel du jeu
             possible_actions = [i for i in range(0, 6) if j.mancala[i] > 0]  # Actions possibles pour l'agent adversaire
             
             # Faire choisir à l'agent adversaire l'action à jouer
             action = agent_opponent.agent.choose_action(state, possible_actions)
+            print(action)
             t = j.player_move(action)
             j.print_mancala()
             if not t:
@@ -238,4 +245,70 @@ def player_aivsai():
         print("OPPONENT AGENT WINS")
         return False
     
+def player_aivsrandom():
+    # Créer les deux instances d'agents Q-learning
+    agent_main = MancalaQLearning()
+
+    # Charger le modèle Q-learning pré-entraîné pour l'agent principal (si existe)
+    try:
+        agent_main.load_model('q_learning_model_10000.pkl')
+        print("1st Model Loaded")
+    except FileNotFoundError:
+        print("No pre-trained model found for the main agent. Training new model...")
+        # Entraîner un nouveau modèle Q-learning pour l'agent principal
+        agent_main.train(num_episodes=10000)
+        # Sauvegarder le modèle entraîné pour l'agent principal
+        agent_main.save_model('q_learning_model_10000.pkl')
+
+    # Initialisation du jeu Mancala
+    j = Mancala_Board(None)
+    j.print_mancala()
+
+    while True:
+        if j.isEnd():
+            break
+        
+        # Tour de l'agent principal
+        while True:
+            if j.isEnd():
+                break
+            
+            print("MAIN AGENT TURN >>> ", end="")
+            state = tuple(j.mancala)  # État actuel du jeu
+            possible_actions = [i for i in range(7, 13) if j.mancala[i] > 0]  # Actions possibles pour l'agent principal
+            
+            # Faire choisir à l'agent principal l'action à jouer
+            action = agent_main.agent.choose_action(state, possible_actions)
+            print(action)
+            t = j.player_move(action)
+            j.print_mancala()
+            if not t:
+                break
+        
+        # Tour de l'agent adversaire
+        while True:
+            if j.isEnd():
+                break
+            
+            print("OPPONENT AGENT TURN >>> ", end="")
+            state = tuple(j.mancala)  # État actuel du jeu
+            possible_actions = [i for i in range(0, 6) if j.mancala[i] > 0]  # Actions possibles pour l'agent adversaire
+            
+            # Faire choisir à l'agent adversaire l'action à jouer
+            action = random.choice(possible_actions)
+            print(action)
+            t = j.player_move(action)
+            j.print_mancala()
+            if not t:
+                break
+    
+    # Afficher le résultat du jeu
+    print('GAME ENDED')
+    j.print_mancala()
+    if j.mancala[6] < j.mancala[13]:
+        print("MAIN AGENT WINS")
+        return True
+    else:
+        print("OPPONENT AGENT WINS")
+        return False
 

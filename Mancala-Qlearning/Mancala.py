@@ -100,14 +100,13 @@ class Mancala_Board:
             print('  ', self.mancala[i], '   ', end='')
         print('  ')
 
-    def husVal(self):
+    def husVal(self,nb_coup=0):
         if self.isEnd():
             if self.mancala[13]>self.mancala[6]:
                 return -100
-                # return 5*(self.mancala[6] - self.mancala[13])
             elif self.mancala[13]==self.mancala[6]:
                 return 0
             else :
-                return 100
+                return 140 - nb_coup
         else:
             return self.mancala[6] - self.mancala[13]
